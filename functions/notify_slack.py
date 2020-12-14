@@ -36,6 +36,24 @@ def cloudwatch_notification(message, region):
     ]
   }
 
+def config_compliance_change_notification(message, region):
+  states = {'COMPLIANT': 'good', 'NON_COMPLIANT': 'danger'}
+
+  return {
+    "color": states[message['newEvaluationResult']['complianceType']],
+    "fallback": "Configrule {} triggered".format(message['configRuleName']),
+    "fields": [
+      { "title": "Configrule Name", "value": message['configRuleName'], "short": True },
+      { "title": "Resource Type", "value": message['resourceType'], "short": False},
+      { "title": "Resource ID", "value": message['resourceId'], "short": False},
+      { "title": "Evaluation Result", "value": message['newEvaluationResult']['complianceType'], "short": True },
+      {
+        "title": "Link to Configrule",
+        "value": "https://" + region + ".console.aws.amazon.com/config/home?region=" + region + "&awsc-custsat-override=promptUser#/rules/rule-details/" + message['configRuleName'],
+        "short": False
+      }
+    ]
+  }
 
 def default_notification(subject, message):
   return {
@@ -70,6 +88,10 @@ def notify_slack(subject, message, region):
   if "AlarmName" in message:
     notification = cloudwatch_notification(message, region)
     payload['text'] = "AWS CloudWatch notification - " + message["AlarmName"]
+    payload['attachments'].append(notification)
+  elif "newEvaluationResult" in message:
+    notification = config_compliance_change_notification(message, region)
+    payload['text'] = "AWS Config compliance change - " + message["configRuleName"]
     payload['attachments'].append(notification)
   else:
     payload['text'] = "AWS notification"
